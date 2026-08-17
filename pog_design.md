@@ -15,35 +15,37 @@ POG 시스템에서 상품별 진열 우선순위를 자동 산정하기 위해 
 
 ## 2. 스코어링 기준
 
-| 평가영역 | 지표 | 가중치(%) | 비고 |
-|---|---|---:|---|
-| 판매성 | 순매출액 | 20 | 가장 중요한 진열 우선순위 지표 |
-| 판매성 | 판매수량 | 15 | 구매빈도 및 수요 반영 |
-| 수익성 | 상품이익률 | 15 | 진열 효율 및 수익성 확보 |
-| 고객가치 | RFM 고객등급 | 10 | 충성고객 선호도 반영 |
-| 공급안정성 | 센터입고 수량 | 10 | 공급 지속 가능성 |
-| 프로모션 | 행사순매출액 | 5 | 행사 민감도 반영 |
-| 재고효율 | 재고보유일수 | 7 | 재고 회전성 평가 |
-| 운영품질 | 결품수 | 5 | 결품이 적을수록 고득점 |
-| 운영품질 | 폐기수량 | 3 | 폐기 적을수록 고득점 |
-| 운영품질 | 센터반품수량 | 3 | 반품 적을수록 고득점 |
-| 운영품질 | 원거래 반품건수 | 3 | 고객 불만족 지표 |
-| 운영품질 | 원거래 반품액 | 2 | 반품 영향도 |
-| 규모지표 | 매출원가 | 2 | 상품 규모 참고지표 |
-| 합계 |  | 100 |  |
+| No | 지표명 | 정의 | 그룹 | 가중치(%) |
+|---:|---|---|---|---:|
+| 1 | 순매출액 | 세금과 에누리액을 제외한 순수 매출액 | A | 20 |
+| 2 | 판매수량 | 상품 판매 수량 | A | 15 |
+| 3 | 상품이익률 | 순매출액 대비 상품 이익액 비중 | A | 15 |
+| 4 | 행사순매출액 | 진성행사상품 순매출액 | A | 10 |
+| 5 | 결품수 | 전산 및 점포에서 품절로 확인되는 상품 수량 | B | 10 |
+| 6 | 재고보유일수 | 재고 판매하기까지의 평균 보유 일수 | C | 5 |
+| 7 | 폐기수량 | 폐기 등록된 상품의 폐기 처리 수량 | B | 7 |
+| 8 | 센터반품수량 | 점포 기준 파트너사 및 센터 반품 수량 | B | 5 |
+| 9 | 매출원가 | 매출원가를 구성하는 금액의 총합 | D | 3 |
+| 10 | 원거래 반품건수 | 영수증 반품 건수 | B | 3 |
+| 11 | 원거래 반품액 | 영수증 반품 금액 | B | 3 |
+| 12 | 센터입고 수량 | 파트너사로부터 센터로 입고된 상품 수량 | D | 2 |
+| 13 | RFMP 고객 등급 | RFMP 기준 고객 등급 | E | 2 |
+| 합계 |  |  |  | 100 |
+
+스코어링은 지표별 원천값을 그대로 선형 점수로 사용하지 않고, 지표 성격에 따라 A~E 그룹의 기준점수로 변환한 뒤 가중치를 적용한다.
 
 ## 3. 핵심 계산 방식
 
 ### 3.1 기본 공식
 
 ```text
-최종 진열 스코어 = Σ(지표별 정규화 점수 × 지표별 가중치)
+최종 진열 스코어 = Σ(지표별 기준점수 × 지표별 가중치 / 100)
 ```
 
-각 지표는 0~100점으로 정규화한 뒤 가중치를 적용한다.
+각 지표는 A~E 그룹별 점수화 방식에 따라 0~100점의 기준점수로 변환한 뒤 가중치를 적용한다. 그룹 A/B는 min-max 정규화 점수를 구간 기준점수로 변환하고, 그룹 C/D/E는 각각 초과일수, ABC 누적 구성비, 확정 등급 기준으로 기준점수를 산출한다.
 
 ```text
-가중 점수 = 정규화 점수 × 가중치 / 100
+가중 점수 = 기준점수 × 가중치 / 100
 ```
 
 최종 점수는 0~100 범위로 산출한다.
@@ -116,7 +118,7 @@ MD는 스코어링 정책을 설정할 때 참조 기간을 주차 단위로 선
 | 순매출액 | 높을수록 좋음 | 매출 기여도 |
 | 판매수량 | 높을수록 좋음 | 수요 및 구매빈도 |
 | 상품이익률 | 높을수록 좋음 | 수익성 |
-| RFM 고객등급 | 높을수록 좋음 | 우수 고객 선호도 |
+| RFMP 고객등급 | 높을수록 좋음 | 우수 고객 선호도 |
 | 센터입고 수량 | 높을수록 좋음 | 공급 지속 가능성 |
 | 행사순매출액 | 높을수록 좋음 | 프로모션 반응도 |
 | 재고보유일수 | 낮을수록 좋음 | 재고 회전성 |
@@ -131,19 +133,75 @@ MD는 스코어링 정책을 설정할 때 참조 기간을 주차 단위로 선
 
 ## 5. 정규화 방식
 
-### 5.1 높을수록 좋은 지표
+### 5.1 그룹 A: 높은 값이 좋은 지표
+
+그룹 A는 높은 값이 좋은 지표에 적용한다. 먼저 선택 기간의 지표값을 비교군 내 min-max 방식으로 정규화한 뒤, 정규화 점수 구간에 따라 기준점수를 부여한다.
 
 ```text
-score = (value - min) / (max - min) × 100
+정규화 점수(%) = (value - min) / (max - min) × 100
 ```
 
-### 5.2 낮을수록 좋은 지표
+| 정규화 점수 구간 | 기준점수 |
+|---:|---:|
+| 80% 이상 | 100 |
+| 60% 이상 ~ 80% 미만 | 80 |
+| 40% 이상 ~ 60% 미만 | 60 |
+| 20% 이상 ~ 40% 미만 | 40 |
+| 20% 미만 | 20 |
+
+대상 지표:
+
+- 순매출액
+- 판매수량
+- 상품이익률
+- 행사순매출액
+
+### 5.2 그룹 B: 낮은 값이 좋은 지표
+
+그룹 B는 낮은 값이 좋은 지표에 적용한다. 먼저 선택 기간의 지표값을 역방향 min-max 방식으로 정규화한 뒤, 정규화 점수 구간에 따라 기준점수를 부여한다.
 
 ```text
-score = (max - value) / (max - min) × 100
+역방향 정규화 점수(%) = (max - value) / (max - min) × 100
 ```
 
-### 5.3 ABC 누적 구성비 방식
+| 역방향 정규화 점수 구간 | 기준점수 |
+|---:|---:|
+| 80% 이상 | 100 |
+| 60% 이상 ~ 80% 미만 | 80 |
+| 40% 이상 ~ 60% 미만 | 60 |
+| 20% 이상 ~ 40% 미만 | 40 |
+| 20% 미만 | 20 |
+
+대상 지표:
+
+- 결품수
+- 폐기수량
+- 센터반품수량
+- 원거래 반품건수
+- 원거래 반품액
+
+### 5.3 그룹 C: 재고보유일수 기준일수 초과 감점
+
+그룹 C는 재고보유일수에 적용한다. 먼저 기간 재고보유일수를 계산하고, 카테고리별 표준 보유일수 대비 초과일수를 산출한 뒤 초과 구간별 기준점수를 부여한다.
+
+```text
+초과일수 = 기간 재고보유일수 - 카테고리별 표준 보유일수
+```
+
+| 초과일수 구간 | 기준점수 |
+|---|---:|
+| 기준일수 이하 | 100 |
+| 1일 ~ 15일 | 90 |
+| 16일 ~ 20일 | 80 |
+| 21일 ~ 35일 | 70 |
+| 36일 ~ 60일 | 60 |
+| 60일 초과 | 50 |
+
+대상 지표:
+
+- 재고보유일수
+
+### 5.4 그룹 D: ABC 누적 구성비 방식
 
 일부 지표는 기간 합계값을 그대로 min-max 정규화하지 않고, 합계값 기준 내림차순 정렬 후 누적 구성비를 계산하여 ABC 등급 점수로 변환한다.
 
@@ -160,17 +218,17 @@ score = (max - value) / (max - min) × 100
 3. 전체 합계 대비 상품별 구성비 계산
 4. 누적 구성비 계산
 5. 누적 구성비 구간에 따라 A/B/C 등급 부여
-6. 등급별 점수를 정규화 점수로 사용
+6. 등급별 점수를 기준점수로 사용
 ```
 
-기본 ABC 구간은 다음과 같이 설정한다.
+기본 ABC 구간은 다음과 같이 설정한다. 여기서 상위 70%는 상품 개수 기준이 아니라 지표 합계의 누적 구성비 기준이다.
 
-| 누적 구성비 | 등급 | 정규화 점수 |
+| 누적 구성비 | 등급 | 기준점수 |
 |---:|---|---:|
-| 0% 초과 ~ 80% 이하 | A | 100 |
-| 80% 초과 ~ 95% 이하 | B | 70 |
-| 95% 초과 ~ 100% 이하 | C | 40 |
-| 값 없음 또는 0 | D | 0 |
+| 0% 초과 ~ 70% 이하 | A | 100 |
+| 70% 초과 ~ 90% 이하 | B | 80 |
+| 90% 초과 ~ 100% 이하 | C | 60 |
+| 값 없음 또는 0 | 미분류 | 0 |
 
 센터입고 수량은 공급 규모와 운영 중요도를 판단하기 위한 지표이고, 매출원가는 상품 규모 참고지표이다. 두 지표 모두 값이 크다고 선형적으로 높은 점수를 부여하기보다, 비교군 내 중요 구간을 구분하는 ABC 방식이 적합하다.
 
@@ -181,7 +239,23 @@ ABC 누적 구성비는 반드시 동일 비교군 안에서 계산한다.
 점포별 POG: 점포 + 진열대 유형 + 표준 POG 대상 상품군
 ```
 
-### 5.4 예외 처리
+### 5.5 그룹 E: RFMP 고객 등급
+
+그룹 E는 RFMP 기준으로 확정된 고객 등급을 고정 기준점수로 변환한다.
+
+| RFMP 등급 | 기준점수 |
+|---|---:|
+| MVG | 100 |
+| VIP | 80 |
+| GOLD | 60 |
+| ACE | 40 |
+| 등급 없음 또는 매핑 불가 | 0 |
+
+대상 지표:
+
+- RFMP 고객 등급
+
+### 5.6 예외 처리
 
 | 상황 | 처리 |
 |---|---|
@@ -448,8 +522,9 @@ Response:
           "metricCode": "netSalesAmount",
           "periodValue": 15200000,
           "normalizedScore": 95.4,
+          "baseScore": 100,
           "weight": 20,
-          "weightedScore": 19.08
+          "weightedScore": 20.0
         }
       ]
     }
@@ -489,7 +564,7 @@ Response:
 | sales_quantity | 판매수량 |
 | profit_amount | 상품이익액 |
 | profit_rate | 상품이익률 |
-| rfm_grade | RFM 고객등급 |
+| rfmp_grade | RFMP 고객등급 |
 | center_inbound_quantity | 센터입고 수량 |
 | promotion_net_sales_amount | 행사순매출액 |
 | inventory_holding_days | 재고보유일수 |
@@ -521,7 +596,7 @@ Response:
 | sales_quantity | 주간 판매수량 합계 |
 | profit_amount | 주간 상품이익액 합계 |
 | profit_rate | 주간 상품이익률 |
-| rfm_grade | 주간 RFM 고객등급 |
+| rfmp_grade | 주간 RFMP 고객등급 |
 | center_inbound_quantity | 주간 센터입고 수량 합계 |
 | promotion_net_sales_amount | 주간 행사순매출액 합계 |
 | inventory_holding_days_sum | 재고보유일수 합계 |
@@ -568,18 +643,75 @@ MD가 설정하는 스코어링 정책 마스터.
 | metric_code | 지표 코드 |
 | use_yn | 사용 여부 |
 | weight | 가중치 |
+| scoring_group | A / B / C / D / E |
 | direction | HIGHER_IS_BETTER / LOWER_IS_BETTER |
 | period_aggregation_type | 기간 집계 방식 |
-| scoring_method | MIN_MAX / REVERSE_MIN_MAX / ABC_CUMULATIVE / STANDARD_DAY_PENALTY |
+| scoring_method | GROUP_A_MINMAX_BAND / GROUP_B_REVERSE_MINMAX_BAND / STANDARD_DAY_PENALTY / ABC_CUMULATIVE / FIXED_GRADE |
 | abc_rule_set_id | ABC 기준 룰셋 ID |
+| score_rule_set_id | 구간 점수 룰셋 ID |
 | normalization_scope | 정규화 범위 |
 | display_order | 화면 표시 순서 |
 
 가중치 합계는 사용 지표 기준으로 100이 되도록 검증한다.
 
-`센터입고 수량`과 `매출원가`는 기본적으로 `period_aggregation_type = SUM`, `scoring_method = ABC_CUMULATIVE`를 사용한다.
+`센터입고 수량`과 `매출원가`는 기본적으로 `scoring_group = D`, `period_aggregation_type = SUM`, `scoring_method = ABC_CUMULATIVE`를 사용한다.
 
-`재고보유일수`는 기본적으로 `period_aggregation_type = SUM_DIVIDE_COUNT`를 사용한다. 선택 주차의 재고보유일수 합계를 측정 건수 합계로 나누어 기간 재고보유일수를 산출한다. 산출된 기간 재고보유일수는 카테고리별 표준 보유일수와 비교하여 `STANDARD_DAY_PENALTY` 방식으로 점수화할 수 있다.
+`재고보유일수`는 기본적으로 `scoring_group = C`, `period_aggregation_type = SUM_DIVIDE_COUNT`를 사용한다. 선택 주차의 재고보유일수 합계를 측정 건수 합계로 나누어 기간 재고보유일수를 산출한다. 산출된 기간 재고보유일수는 카테고리별 표준 보유일수와 비교하여 `STANDARD_DAY_PENALTY` 방식으로 점수화한다.
+
+`RFMP 고객 등급`은 기본적으로 `scoring_group = E`, `period_aggregation_type = LAST_VALUE`, `scoring_method = FIXED_GRADE`를 사용한다.
+
+### 9.5.1 score_rule_set
+
+A~E 그룹별 기준점수 룰셋 마스터.
+
+| 컬럼 | 설명 |
+|---|---|
+| score_rule_set_id | 룰셋 ID |
+| rule_set_name | 룰셋명 |
+| scoring_group | A / B / C / D / E |
+| scoring_method | 점수화 방식 |
+| enabled | 사용 여부 |
+| created_by | 생성자 |
+| created_at | 생성일시 |
+
+### 9.5.2 score_rule_detail
+
+기준점수 룰셋 상세.
+
+| 컬럼 | 설명 |
+|---|---|
+| score_rule_set_id | 룰셋 ID |
+| rule_order | 적용 순서 |
+| from_value | 구간 시작값 |
+| to_value | 구간 종료값 |
+| grade_code | 등급 코드 |
+| base_score | 기준점수 |
+| description | 설명 |
+
+그룹별 `from_value`, `to_value`의 의미는 다르다.
+
+| 그룹 | 구간값 의미 |
+|---|---|
+| A | 정방향 정규화 점수 구간 |
+| B | 역방향 정규화 점수 구간 |
+| C | 카테고리 기준보유일수 대비 초과일수 구간 |
+| D | 누적 구성비 구간 |
+| E | RFMP 확정 등급 |
+
+### 9.5.3 category_inventory_standard
+
+재고보유일수 기준점수 산출을 위한 카테고리별 표준 보유일수.
+
+| 컬럼 | 설명 |
+|---|---|
+| category_id | 카테고리 ID |
+| shelf_type_id | 진열대 유형 ID |
+| standard_holding_days | 표준 보유일수 |
+| effective_start_date | 적용 시작일 |
+| effective_end_date | 적용 종료일 |
+| enabled | 사용 여부 |
+| created_by | 생성자 |
+| created_at | 생성일시 |
 
 ### 9.6 standard_pog_result
 
@@ -658,11 +790,13 @@ MD가 설정하는 스코어링 정책 마스터.
 | product_id | 상품 ID |
 | metric_code | 지표 코드 |
 | period_value | 기간 집계 지표값 |
+| scoring_group | 스코어링 그룹 |
 | scoring_method | 점수화 방식 |
 | abc_grade | ABC 등급 |
 | abc_composition_ratio | 구성비 |
 | abc_cumulative_ratio | 누적 구성비 |
 | normalized_score | 정규화 점수 |
+| base_score | 구간 기준점수 |
 | weight | 가중치 |
 | weighted_score | 가중 점수 |
 
@@ -686,7 +820,7 @@ MD가 설정하는 스코어링 정책 마스터.
 | RATIO_OF_SUMS | 분자 합계 / 분모 합계 | 상품이익률 |
 | SUM_DIVIDE_COUNT | 값 합계 / 측정 건수 합계 | 재고보유일수 |
 | AVERAGE | 선택 주차 단순 평균 | 등급성 보조 지표 |
-| LAST_VALUE | 마지막 주차 값 | RFM 고객등급 등 |
+| LAST_VALUE | 마지막 주차 값 | RFMP 고객등급 등 |
 
 ### 10.1 지표별 권장 기간 집계 방식
 
@@ -695,7 +829,7 @@ MD가 설정하는 스코어링 정책 마스터.
 | 순매출액 | 주간 합계 | 선택 주차 합계 |
 | 판매수량 | 주간 합계 | 선택 주차 합계 |
 | 상품이익률 | 주간 이익률, 상품이익액, 순매출액 | 상품이익액 합계 / 순매출액 합계 |
-| RFM 고객등급 | 주간 등급 | 마지막 주차 값 또는 가중 평균 |
+| RFMP 고객등급 | 주간 등급 | 마지막 주차 값 |
 | 센터입고 수량 | 주간 합계 | 선택 주차 합계 후 ABC 누적 구성비 점수화 |
 | 행사순매출액 | 주간 합계 | 선택 주차 합계 |
 | 재고보유일수 | 주간 합계, 측정 건수, 주간 평균 | 선택 주차 재고보유일수 합계 / 선택 주차 측정 건수 합계 |
@@ -758,12 +892,12 @@ MD가 설정하는 스코어링 정책 마스터.
 
 | 누적 구성비 | 등급 | 점수 |
 |---:|---|---:|
-| 0% 초과 ~ 80% 이하 | A | 100 |
-| 80% 초과 ~ 95% 이하 | B | 70 |
-| 95% 초과 ~ 100% 이하 | C | 40 |
-| 값 없음 또는 0 | D | 0 |
+| 0% 초과 ~ 70% 이하 | A | 100 |
+| 70% 초과 ~ 90% 이하 | B | 80 |
+| 90% 초과 ~ 100% 이하 | C | 60 |
+| 값 없음 또는 0 | 미분류 | 0 |
 
-ABC 점수화는 기간 집계 이후 정규화 단계에서 수행한다. 따라서 원천 주별 집계 테이블에는 기존과 동일하게 주간 합계값을 저장하고, 별도의 ABC 집계값은 저장하지 않는다. 스코어 재현을 위해 스코어 상세에는 기간 합계값, ABC 등급, 누적 구성비, 정규화 점수를 함께 저장하는 것을 권장한다.
+ABC 점수화는 기간 집계 이후 점수화 단계에서 수행한다. 따라서 원천 주별 집계 테이블에는 기존과 동일하게 주간 합계값을 저장하고, 별도의 ABC 집계값은 저장하지 않는다. 스코어 재현을 위해 스코어 상세에는 기간 합계값, ABC 등급, 누적 구성비, 기준점수를 함께 저장하는 것을 권장한다.
 
 ## 11. 시즌 POG 집계 데이터 정책
 
@@ -915,6 +1049,8 @@ MD가 점포별 POG 생성 버튼을 클릭하면 시스템은 확정된 표준 
 - 지표별 가중치
 - 지표별 방향성
 - 지표별 기간 집계 방식
+- 지표별 점수화 방식
+- 지표별 기준점수 룰셋
 - 정규화 범위
 
 예시:
@@ -935,28 +1071,43 @@ MD가 점포별 POG 생성 버튼을 클릭하면 시스템은 확정된 표준 
       "name": "순매출액",
       "area": "판매성",
       "weight": 20,
+      "scoringGroup": "A",
       "direction": "HIGHER_IS_BETTER",
       "periodAggregationType": "SUM",
-      "scoringMethod": "MIN_MAX"
+      "scoringMethod": "GROUP_A_MINMAX_BAND"
     },
     {
       "code": "inventoryHoldingDays",
       "name": "재고보유일수",
       "area": "재고효율",
-      "weight": 7,
+      "weight": 5,
+      "scoringGroup": "C",
       "direction": "LOWER_IS_BETTER",
       "periodAggregationType": "SUM_DIVIDE_COUNT",
-      "scoringMethod": "STANDARD_DAY_PENALTY"
+      "scoringMethod": "STANDARD_DAY_PENALTY",
+      "scoreRuleSetId": "INV-DAY-PENALTY-DEFAULT"
     },
     {
       "code": "centerInboundQuantity",
       "name": "센터입고 수량",
       "area": "공급안정성",
-      "weight": 10,
+      "weight": 2,
+      "scoringGroup": "D",
       "direction": "HIGHER_IS_BETTER",
       "periodAggregationType": "SUM",
       "scoringMethod": "ABC_CUMULATIVE",
-      "abcRuleSetId": "ABC-80-95"
+      "abcRuleSetId": "ABC-70-90"
+    },
+    {
+      "code": "rfmpGrade",
+      "name": "RFMP 고객 등급",
+      "area": "고객가치",
+      "weight": 2,
+      "scoringGroup": "E",
+      "direction": "HIGHER_IS_BETTER",
+      "periodAggregationType": "LAST_VALUE",
+      "scoringMethod": "FIXED_GRADE",
+      "scoreRuleSetId": "RFMP-GRADE-DEFAULT"
     }
   ]
 }

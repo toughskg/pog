@@ -415,14 +415,14 @@ Action List에서 사용할 수 있는 명령과 옵션 정의.
 - 특정 단계 rollback
 - 미배정 상품, 제외 상품, 초과 상품 사유 표시
 
-## 11. 주요 API
+## 11. 주요 화면/서버 처리
 
-| API | 설명 |
+| 화면 처리 | 설명 |
 |---|---|
-| `POST /api/v1/pog/projects/{projectId}/action-lists` | Action List 생성 |
-| `GET /api/v1/pog/action-command-definitions` | Action 명령 카탈로그 조회 |
-| `PUT /api/v1/pog/action-lists/{actionListId}/steps` | Action 단계 저장 |
-| `POST /api/v1/pog/action-lists/{actionListId}/preview` | 미리보기 실행 |
-| `POST /api/v1/pog/action-lists/{actionListId}/execute` | 수동 실행 |
-| `POST /api/v1/pog/projects/{projectId}/store-planograms/batch` | 확정 프로젝트 배치 실행 |
-| `POST /api/v1/pog/action-executions/{executionId}/rollback` | 실행 결과 복원 |
+| Action List 생성 화면 액션 | Action List 생성 |
+| Action 명령 카탈로그 조회 화면 처리 | Action 명령 카탈로그 조회 |
+| Action 단계 저장 화면 액션 | Action 단계 저장 |
+| 미리보기 실행 화면 액션 | 점별진열대장 엔진 preview job 생성 |
+| 수동 실행 화면 액션 | 점별진열대장 엔진 apply job 생성 |
+| 확정 프로젝트 배치 실행 화면 액션 | 확정 프로젝트 배치 실행 job 생성 |
+| 실행 결과 복원 화면 액션 | 실행 결과 복원 |

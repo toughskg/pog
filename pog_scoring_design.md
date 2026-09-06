@@ -374,7 +374,7 @@ A~E 그룹별 기준점수 룰셋 마스터.
 
 처리 순서:
 
-1. 전일 마감 인터페이스 파일 또는 API 수신
+1. 전일 마감 인터페이스 파일, DB Link, 인터페이스 테이블 중 운영 표준 방식으로 수신
 2. staging 테이블 적재
 3. 필수값, 숫자값, 코드값 검증
 4. 오류 데이터 분리 및 배치 이력 저장
@@ -410,13 +410,13 @@ A~E 그룹별 기준점수 룰셋 마스터.
 7. 상품별 최종 스코어 저장
 8. 진열제안 입력값 갱신
 
-## 14. 주요 API
+## 14. 주요 화면/서버 처리
 
-| API | 설명 |
+| 화면 처리 | 설명 |
 |---|---|
-| `POST /api/v1/pog/projects` | 프로젝트 생성 |
-| `POST /api/v1/pog/projects/{projectId}/library/build` | 표준진열대장 상품 취합 후 라이브러리 생성 |
-| `PUT /api/v1/pog/projects/{projectId}/library/items` | 라이브러리 상품 추가/삭제 |
-| `PUT /api/v1/pog/projects/{projectId}/scoring-policy` | 스코어링 지표/기간/가중치 설정 |
-| `POST /api/v1/pog/projects/{projectId}/score` | 스코어링 실행 |
-| `GET /api/v1/pog/projects/{projectId}/scores` | 스코어 결과 조회 |
+| 프로젝트 생성 화면 액션 | 프로젝트 생성 |
+| 라이브러리 생성 화면 액션 | 표준진열대장 상품 취합 후 라이브러리 생성 |
+| 라이브러리 상품 저장 화면 액션 | 라이브러리 상품 추가/삭제 |
+| 스코어링 정책 저장 화면 액션 | 스코어링 지표/기간/가중치 설정 |
+| 스코어링 실행 화면 액션 | Spring Boot Controller에서 검증 후 DB 프로시저 호출 |
+| 스코어 결과 조회 화면 처리 | 스코어 결과 조회 |

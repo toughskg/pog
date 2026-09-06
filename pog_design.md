@@ -50,16 +50,18 @@ flowchart TD
 
 ## 5. 시스템 아키텍처
 
-사용자 화면은 웹 기반 React로 구성하고, 서버는 Spring Boot 기반 API 서버로 구성한다. 로그인, 공통코드, 다국어 메시지 등 반복 조회가 많은 공통 데이터는 Redis에 캐싱하여 조회 성능을 확보한다.
+사용자 화면은 웹 기반 React로 구성하고, 서버는 API 전용 서버가 아니라 Spring Boot 기반 세션형 웹 애플리케이션 서버 클러스터로 구성한다. 화면 요청은 Spring MVC Controller와 화면 액션 처리 계층을 통해 수행하며, 사용자의 로그인 세션과 화면 상태는 클러스터 환경에서도 일관되게 유지되어야 한다.
 
-스코어링은 화면에서 직접 DB 프로시저를 호출하지 않고, React 화면에서 Spring Boot API를 호출하면 Spring Boot가 권한/파라미터/상태를 검증한 뒤 DB 프로시저를 호출하는 구조를 권장한다.
+로그인 세션, 권한, 공통코드, 다국어 메시지 등 반복 조회가 많은 공통 데이터는 Redis에 저장하거나 캐싱하여 조회 성능과 서버 클러스터링 안정성을 확보한다.
+
+스코어링은 화면에서 직접 DB 프로시저를 호출하지 않고, React 화면 액션이 Spring Boot Controller를 경유하면 Spring Boot가 세션/권한/파라미터/상태를 검증한 뒤 DB 프로시저를 호출하는 구조를 권장한다.
 
 ```mermaid
 flowchart TD
     U["사용자/MD"] --> R["React Web UI"]
-    R --> A["Spring Boot API Server"]
-    A --> C["Auth/Common Service"]
-    C --> RD["Redis Cache"]
+    R --> A["Spring Boot Web Cluster<br/>Session Based"]
+    A --> C["Auth/Common/Screen Service"]
+    C --> RD["Redis<br/>Session & Cache"]
     A --> DB["RDBMS"]
     A --> P["Scoring Procedure"]
     P --> DB
@@ -73,9 +75,9 @@ flowchart TD
 | 구성 요소 | 기술 | 역할 |
 |---|---|---|
 | Web UI | React | 마스터 설정, 프로젝트, 스코어링, 진열제안, Action List 실행 화면 |
-| API Server | Spring Boot | 화면 API, 권한 검증, 트랜잭션 제어, 프로시저 호출, 실행 이력 저장 |
+| Web Application Server | Spring Boot Cluster | 세션 기반 화면 요청 처리, 권한 검증, 트랜잭션 제어, 프로시저 호출, 실행 이력 저장 |
 | RDBMS | PostgreSQL 또는 운영 표준 DB | POG 마스터, 주별 집계, 스코어링 결과, 진열대장, Action List 저장 |
-| Redis | Redis | 로그인 세션, 권한 캐시, 공통코드, 다국어 메시지, 화면 설정 캐시 |
+| Redis | Redis / Spring Session | 클러스터 세션 공유, 로그인 컨텍스트, 권한 캐시, 공통코드, 다국어 메시지, 화면 설정 캐시 |
 | Procedure | DB Stored Procedure | 스코어링, 기간 집계, 일부 대량 계산 처리 |
 | Batch | Spring Scheduler, Spring Batch 또는 운영 배치 | 일별/주별 집계, 마이그레이션, 확정 프로젝트 배치 실행 |
 | Audit Log | DB Table 또는 로그 저장소 | 사용자 실행, 수동 조정, 프로시저 실행 결과 추적 |
@@ -86,7 +88,8 @@ Redis는 원천 저장소가 아니라 조회 성능 개선을 위한 캐시로 
 
 | 캐시 대상 | 설명 |
 |---|---|
-| 로그인 세션 | 사용자 로그인 상태 및 세션 정보 |
+| 클러스터 세션 | Spring Boot 서버 간 사용자 세션 공유 |
+| 로그인 컨텍스트 | 사용자 로그인 상태, 사용자 프로필, 현재 권한 범위 |
 | 권한 정보 | 메뉴/버튼/기능 권한 |
 | 공통코드 | 진열대 유형, action 타입, 지표 그룹, 상태 코드 등 |
 | 다국어 메시지 | 화면 라벨, 오류 메시지, 도움말 메시지 |
@@ -98,13 +101,13 @@ Redis는 원천 저장소가 아니라 조회 성능 개선을 위한 캐시로 
 
 ```text
 React 화면
-→ Spring Boot 스코어링 API
-→ 프로젝트/라이브러리/정책/권한 검증
+→ Spring Boot 화면 Controller
+→ 세션/권한/프로젝트/라이브러리/정책 검증
 → scoring_run 이력 생성
 → DB 프로시저 호출
 → 지표 기간값, 기준점수, 가중점수 계산
 → 결과 테이블 저장
-→ 실행 상태 및 결과 반환
+→ 화면 모델 또는 조회 결과 반환
 ```
 
 프로시저 호출은 반드시 Spring Boot를 경유한다. 이를 통해 사용자 권한, 프로젝트 상태, 중복 실행, 오류 처리, 실행 로그를 일관되게 관리한다.
@@ -114,9 +117,9 @@ React 화면
 | 구분 | 처리 방식 |
 |---|---|
 | 일별/주별 집계 | 배치 또는 스케줄러에서 처리 |
-| 프로젝트 스코어링 | 화면 요청 기반 API + 프로시저 호출 |
-| 진열제안 | 화면 요청 기반 API 처리 |
-| Action List 수동 실행 | 화면 요청 기반 단계별 preview/apply |
+| 프로젝트 스코어링 | 화면 Controller 기반 프로시저 호출 |
+| 진열제안 | 화면 Controller에서 비동기 job 생성 후 결과 조회 |
+| Action List 수동 실행 | 화면 Controller 기반 단계별 preview/apply |
 | 확정 프로젝트 점별 생성 | 수동 실행 또는 배치 실행 |
 
 ## 6. 설계 원칙
@@ -191,7 +194,8 @@ React 화면
 | 보안 | MD, 운영자, 조회자 권한 분리 |
 | 사용성 | 단계별 실행 결과를 화면에서 확인하고 재조정 가능 |
 | 캐시 일관성 | 공통코드/다국어 메시지 변경 시 Redis 캐시 갱신 또는 무효화 |
-| 실행 통제 | 스코어링 프로시저 호출은 API 서버를 통해 권한과 상태 검증 후 실행 |
+| 세션 클러스터링 | Spring Session 또는 동등한 방식으로 Redis에 세션을 공유하여 서버 증설 시 화면 상태 유지 |
+| 실행 통제 | 스코어링 프로시저 호출과 엔진 job 생성은 Spring Boot 화면 서버를 통해 권한과 상태 검증 후 실행 |
 
 ## 10. 문서 목록
 

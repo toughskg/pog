@@ -250,14 +250,14 @@ flowchart TD
 | 집기 | 후크형/선반형/바스켓형, 수용량 공식, 최소/최대 진열수량, 계약 위치 여부 |
 | 진열대장 | 진열단위, 적용 시즌, 적용 점포군, 모듈 수, 선반 수, 표준/점별 구분 |
 
-## 10. 주요 API
+## 10. 주요 화면/서버 처리
 
-| API | 설명 |
+| 화면 처리 | 설명 |
 |---|---|
-| `POST /api/v1/pog/display-units` | 진열단위 생성 |
-| `POST /api/v1/pog/planograms` | 표준/점별 진열대장 생성 |
-| `POST /api/v1/pog/planograms/{id}/modules` | 진열대장 모듈 생성 |
-| `POST /api/v1/pog/planograms/{id}/shelves` | 진열대장 선반 생성 |
-| `POST /api/v1/pog/planogram-mappings` | 표준/점별 진열대장 매핑 |
-| `POST /api/v1/pog/attributes` | 확장 속성 정의 |
-| `PUT /api/v1/pog/objects/{objectId}/attributes` | 객체별 속성값 저장 |
+| 진열단위 저장 화면 액션 | 진열단위 생성 |
+| 진열대장 저장 화면 액션 | 표준/점별 진열대장 생성 |
+| 모듈 저장 화면 액션 | 진열대장 모듈 생성 |
+| 선반 저장 화면 액션 | 진열대장 선반 생성 |
+| 진열대장 매핑 화면 액션 | 표준/점별 진열대장 매핑 |
+| 확장 속성 정의 화면 액션 | 확장 속성 정의 |
+| 객체별 속성값 저장 화면 액션 | 객체별 속성값 저장 |

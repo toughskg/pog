@@ -4,7 +4,7 @@
 
 본 문서는 표준진열제안 엔진과 점별진열대장 생성 엔진의 시스템 아키텍처와 소프트웨어 아키텍처를 정의한다.
 
-두 엔진은 모두 Python 3.11 기준으로 설계하며, PostgreSQL을 중심 저장소로 사용한다. React 화면은 Spring Boot API를 호출하고, Spring Boot는 PostgreSQL job 테이블에 실행 요청을 등록한다. Python 엔진은 job을 polling 또는 notify 방식으로 가져와 실시간 배치 형태로 처리한다.
+두 엔진은 모두 Python 3.11 기준으로 설계하며, PostgreSQL을 중심 저장소로 사용한다. React 화면은 세션 기반 Spring Boot 웹 서버 클러스터의 화면 액션을 호출하고, Spring Boot는 PostgreSQL job 테이블에 실행 요청을 등록한다. Python 엔진은 job을 polling 또는 notify 방식으로 가져와 실시간 배치 형태로 처리한다.
 
 ## 2. 설계 판단
 
@@ -15,7 +15,7 @@
 | 적합 업무 | 정형 집계, 스코어링, 대량 update | 배치 탐색, 룰 평가, 위치 계산, 미리보기, rollback |
 | 장점 | DB 내부 처리로 빠름, 배포 단순 | 복잡한 알고리즘 구현 용이, 테스트 용이, 모듈화 가능 |
 | 단점 | 복잡한 룰/공간 계산 유지보수 어려움 | 별도 실행 환경과 job 관리 필요 |
-| 화면 연동 | UI 또는 API에서 procedure 호출 | UI는 API 호출, 엔진은 DB job 기반 비동기 처리 |
+| 화면 연동 | Spring Boot 화면 Controller에서 procedure 호출 | 화면 액션은 Spring Boot를 경유하고, 엔진은 DB job 기반 비동기 처리 |
 
 표준진열제안과 점별진열대장 생성은 상품, 표준진열대장, 모듈, 선반, 집기, 속성, 스코어, 룰, 사용자 수식, 공간 제약을 함께 판단해야 한다. 따라서 DB procedure보다는 Python 3.11 기반 엔진으로 구현하는 것이 더 적합하다.
 
@@ -26,9 +26,9 @@
 ```mermaid
 flowchart TD
     U["사용자/MD"] --> UI["React Web UI"]
-    UI --> API["Spring Boot API"]
-    API --> DB["PostgreSQL"]
-    API --> RD["Redis"]
+    UI --> WEB["Spring Boot Web Cluster<br/>Session Based"]
+    WEB --> DB["PostgreSQL"]
+    WEB --> RD["Redis<br/>Session & Cache"]
 
     DB --> JQ["engine_job_queue"]
     JQ --> SPE["Standard Proposal Engine<br/>Python 3.11"]
@@ -39,7 +39,7 @@ flowchart TD
     SPE --> LOG["engine_execution_log"]
     SAE --> LOG
 
-    API --> RES["결과 조회 API"]
+    WEB --> RES["결과 조회 화면 처리"]
     RES --> UI
 ```
 
@@ -151,12 +151,12 @@ Action List는 점별진열대장 생성 전용이다. 표준진열제안 엔진
 
 ### 7.1 실행 요청
 
-React 화면에서 사용자가 표준진열제안 또는 점별진열대장 생성을 요청하면 Spring Boot API가 job을 생성한다.
+React 화면에서 사용자가 표준진열제안 또는 점별진열대장 생성을 요청하면 세션 기반 Spring Boot 화면 Controller가 job을 생성한다.
 
 ```text
 React
-→ Spring Boot API
-→ 권한/상태/파라미터 검증
+→ Spring Boot 화면 Controller
+→ 세션/권한/상태/파라미터 검증
 → engine_job_queue insert
 → Python engine 실행
 → 결과 저장
@@ -210,17 +210,18 @@ React
 | snapshot_json | 결과 JSON |
 | created_at | 생성일시 |
 
-## 8. Spring Boot 연동 원칙
+## 8. Spring Boot 세션 기반 웹 서버 연동 원칙
 
 Spring Boot는 엔진 로직을 직접 수행하지 않고, 다음 역할을 담당한다.
 
+- 클러스터 환경의 사용자 세션 유지
 - 사용자 인증/인가
 - 프로젝트 상태 검증
 - 실행 요청 중복 방지
 - job 생성
-- job 상태 조회
-- 결과 조회 API 제공
-- Redis 캐시 조회
+- job 상태 조회 화면 처리
+- 결과 조회 화면 처리
+- Redis 세션/캐시 조회
 - 실행 취소 또는 rollback 요청
 
 표준진열제안과 점별진열대장 생성의 실제 계산은 Python 엔진에서 수행한다.
@@ -232,6 +233,8 @@ Redis는 Python 엔진과 Spring Boot가 공통으로 참조할 수 있는 캐�
 | 캐시 대상 | 사용 주체 | 설명 |
 |---|---|---|
 | 공통코드 | Spring Boot, Python | 단계 코드, 명령 타입, 상태 코드 |
+| 클러스터 세션 | Spring Boot | 서버 간 사용자 세션 공유 |
+| 로그인 컨텍스트 | Spring Boot | 로그인 사용자와 현재 권한 범위 |
 | 다국어 메시지 | Spring Boot | 화면 메시지 |
 | 필드 사전 | Python | 사용자 수식 필드명과 DB 컬럼 매핑 |
 | 속성 메타데이터 | Python | 확장 속성 정의 캐시 |
@@ -356,7 +359,7 @@ store-action-worker
 | 설정 | `pydantic-settings` | 공통 | 환경변수 기반 설정 로딩 | 권장 |
 | 로깅 | `structlog` | 공통 | job_id, project_id, store_id 포함 구조화 로그 | 권장 |
 | 메트릭 | `prometheus-client` | 공통 | job 처리 시간, 성공/실패 건수, queue depth 메트릭 | 권장 |
-| 분산 추적 | `opentelemetry-api`, `opentelemetry-sdk` | 공통 | Spring Boot API와 Python worker 간 trace 연계 | 선택 |
+| 분산 추적 | `opentelemetry-api`, `opentelemetry-sdk` | 공통 | Spring Boot 화면 서버와 Python worker 간 trace 연계 | 선택 |
 | 테스트 | `pytest` | 공통 | 단위/통합 테스트 | 필수 |
 | 속성 기반 테스트 | `hypothesis` | 공통 | 수식 파서, 공간 배치, 경계값 테스트 | 권장 |
 | 테스트 DB | `testcontainers[postgresql]` | 공통 | PostgreSQL 통합 테스트 컨테이너 | 권장 |
@@ -542,18 +545,18 @@ dev = [
 
 ## 16. 최종 권장안
 
-표준진열제안과 점별진열대장 생성은 Python 3.11 기반 엔진으로 구현한다. Spring Boot는 화면 API와 job 제어를 담당하고, PostgreSQL은 job queue와 결과 저장소 역할을 한다.
+표준진열제안과 점별진열대장 생성은 Python 3.11 기반 엔진으로 구현한다. Spring Boot는 세션 기반 화면 처리와 job 제어를 담당하고, PostgreSQL은 job queue와 결과 저장소 역할을 한다.
 
 권장 구조:
 
 ```text
 React
-→ Spring Boot API
+→ Spring Boot Web Cluster
 → PostgreSQL job queue
 → Python 3.11 engine
 → PostgreSQL result tables
-→ Spring Boot result API
+→ Spring Boot result screen handler
 → React
 ```
 
-이 구조는 복잡한 진열 계산을 UI와 API 서버에서 분리하고, 실시간 미리보기와 배치 실행을 모두 지원할 수 있다.
+이 구조는 복잡한 진열 계산을 UI와 Spring Boot 화면 서버에서 분리하고, 세션 기반 화면 UX와 비동기 배치 실행을 모두 지원할 수 있다.

@@ -165,12 +165,12 @@
 
 확정되지 않은 프로젝트는 점별진열대장 생성에 사용할 수 없다.
 
-## 11. 주요 API
+## 11. 주요 화면/서버 처리
 
-| API | 설명 |
+| 화면 처리 | 설명 |
 |---|---|
-| `POST /api/v1/pog/projects/{projectId}/proposal` | 진열제안 생성 |
-| `GET /api/v1/pog/projects/{projectId}/proposal` | 진열제안 조회 |
-| `PUT /api/v1/pog/proposals/{proposalId}/items` | 제안 결과 수동 조정 |
-| `POST /api/v1/pog/projects/{projectId}/confirm` | 프로젝트 확정 |
-| `DELETE /api/v1/pog/projects/{projectId}` | 미사용 프로젝트 삭제 |
+| 진열제안 생성 화면 액션 | 표준진열제안 엔진 job 생성 |
+| 진열제안 조회 화면 처리 | 진열제안 결과 조회 |
+| 제안 결과 조정 화면 액션 | 제안 결과 수동 조정 |
+| 프로젝트 확정 화면 액션 | 프로젝트 확정 |
+| 미사용 프로젝트 삭제 화면 액션 | 미사용 프로젝트 삭제 |

@@ -1,0 +1,176 @@
+# POG 진열제안 설계서
+
+## 1. 목적
+
+본 문서는 POG 시스템의 진열제안 영역을 정의한다. 진열제안은 프로젝트의 스코어링 결과와 표준진열대장별 속성을 기반으로 상품별 모듈, 집기, 위치, 면수, 진열 깊이 등을 제안한다.
+
+진열제안은 자동 확정이 아니라 MD 검토와 수동 조정을 전제로 하는 초안 생성 기능이다.
+
+## 2. 업무 흐름
+
+```text
+프로젝트 스코어링 완료
+→ 진열제안 버튼 클릭
+→ 표준진열대장 구조 및 속성 조회
+→ 상품 라이브러리와 스코어 조회
+→ 계약 위치/신상품/필수 진열 룰 반영
+→ 모듈/집기/위치/면수/깊이 제안
+→ MD 수동 조정
+→ 프로젝트 비교
+→ 1개 프로젝트 확정
+```
+
+## 3. 제안 대상 정보
+
+진열제안 결과에는 다음 정보를 포함한다.
+
+| 항목 | 설명 |
+|---|---|
+| 상품 | 상품 코드, 상품명 |
+| 진열대장 | 표준진열대장 ID |
+| 모듈 | 제안 모듈 |
+| 선반 | 제안 선반 |
+| 집기 | 제안 집기 |
+| 위치 | 좌우/상하/순번/좌표 |
+| 면수 | facings |
+| 진열 깊이 | depth 수량 |
+| 진열 수량 | 면수 × 깊이 등으로 산출 |
+| 적용 룰 | 계약 위치, 신상품, 브랜드 모음 등 |
+| 제안 사유 | 스코어, 카테고리, 룰 기반 설명 |
+
+## 4. 진열제안 기본 원칙
+
+| 원칙 | 설명 |
+|---|---|
+| 스코어 우선 | 고스코어 상품에 우선 위치와 면수를 배정 |
+| 공간 제약 준수 | 모듈, 선반, 집기 용량과 속성을 초과하지 않음 |
+| 룰 우선순위 | 계약 위치, 필수 진열, 제외 룰은 스코어보다 우선 |
+| 수동 조정 가능 | 모든 제안 결과는 MD가 수정 가능 |
+| 프로젝트 비교 | 동일 진열단위에 여러 제안을 생성하고 비교 가능 |
+
+## 5. 소량 상품 처리
+
+기존 진열대장에서 상품이 5개 이내인 경우 별도 스코어링을 하지 않고 수기로 진열제안한다.
+
+```text
+상품 수 <= 5
+→ 스코어링 생략 가능
+→ 수기 진열제안 모드 전환
+```
+
+이 기준은 운영 설정으로 관리하여 향후 진열단위별로 조정할 수 있다.
+
+## 6. 진열 룰
+
+신규 상품이나 계약에 의해 위치가 지정된 상품은 집기 정보 또는 진열 룰로 관리한다.
+
+### 6.1 display_rule
+
+| 컬럼 | 설명 |
+|---|---|
+| rule_id | 룰 ID |
+| project_id | 프로젝트 ID |
+| rule_type | CONTRACT_POSITION / NEW_PRODUCT / BRAND_GROUP / EXCLUDE / REQUIRED 등 |
+| target_type | PRODUCT / BRAND / CATEGORY / ATTRIBUTE |
+| target_value | 대상 값 |
+| priority | 우선순위 |
+| enabled | 사용 여부 |
+
+### 6.2 display_rule_action
+
+| 컬럼 | 설명 |
+|---|---|
+| rule_id | 룰 ID |
+| action_type | FIX_POSITION / MIN_FACING / MAX_FACING / GROUP_TOGETHER / EXCLUDE 등 |
+| module_id | 대상 모듈 |
+| shelf_id | 대상 선반 |
+| equipment_id | 대상 집기 |
+| value_json | 세부 조건 |
+
+## 7. 진열대장 속성 활용
+
+진열제안은 표준진열대장, 모듈, 선반, 집기의 속성을 활용한다. 속성은 예시 항목에 한정하지 않고 확장 속성 모델을 통해 관리한다.
+
+예시:
+
+| 속성 | 활용 |
+|---|---|
+| 모듈 폭/높이/깊이 | 진열 가능 수량 계산 |
+| 선반 높이 | 상품 배치 가능 여부 판단 |
+| 집기 유형 | 선반형/후크형/바스켓형 배치 판단 |
+| 냉장/냉동 여부 | 온도대 상품 제약 |
+| 계약 위치 | 특정 위치 고정 |
+| 브랜드존 | 브랜드별 모아 진열 |
+| 시야 높이 | 고스코어 상품 우선 배치 |
+
+## 8. 진열제안 알고리즘
+
+```text
+1. 프로젝트 상품 라이브러리 조회
+2. 스코어링 결과 조회
+3. 표준진열대장 모듈/선반/집기 구조 조회
+4. 필수/제외/계약 위치 룰 선반영
+5. 잔여 공간 계산
+6. 상품별 권장 면수와 깊이 계산
+7. 스코어와 룰 우선순위에 따라 위치 배정
+8. 미배정 상품과 초과 상품 분리
+9. MD 검토용 제안 결과 저장
+```
+
+## 9. 결과 데이터 모델
+
+### 9.1 display_proposal
+
+| 컬럼 | 설명 |
+|---|---|
+| proposal_id | 진열제안 ID |
+| project_id | 프로젝트 ID |
+| display_unit_id | 진열단위 ID |
+| status | DRAFT / REVIEWED / CONFIRMED / DELETED |
+| created_by | 생성자 |
+| created_at | 생성일시 |
+
+### 9.2 display_proposal_item
+
+| 컬럼 | 설명 |
+|---|---|
+| proposal_id | 진열제안 ID |
+| product_id | 상품 ID |
+| standard_planogram_id | 표준진열대장 ID |
+| module_id | 제안 모듈 ID |
+| shelf_id | 제안 선반 ID |
+| equipment_id | 제안 집기 ID |
+| position_no | 위치 순번 |
+| x_position | X 위치 |
+| y_position | Y 위치 |
+| facing_quantity | 면수 |
+| display_depth | 진열 깊이 |
+| display_quantity | 진열 수량 |
+| score | 상품 스코어 |
+| applied_rule_ids | 적용 룰 목록 |
+| manual_adjust_yn | 수동 조정 여부 |
+| adjust_reason | 조정 사유 |
+
+## 10. 프로젝트 비교와 확정
+
+동일 진열단위에 대해 여러 프로젝트를 만들 수 있다. MD는 프로젝트별 진열제안 결과를 비교하고 1개 프로젝트만 확정한다.
+
+| 상태 | 설명 |
+|---|---|
+| DRAFT | 작성 중 |
+| SCORED | 스코어링 완료 |
+| PROPOSED | 진열제안 생성 |
+| CONFIRMED | 점별진열대장 생성 대상으로 확정 |
+| DELETED | 비교 후 미사용 삭제 |
+
+확정되지 않은 프로젝트는 점별진열대장 생성에 사용할 수 없다.
+
+## 11. 주요 API
+
+| API | 설명 |
+|---|---|
+| `POST /api/v1/pog/projects/{projectId}/proposal` | 진열제안 생성 |
+| `GET /api/v1/pog/projects/{projectId}/proposal` | 진열제안 조회 |
+| `PUT /api/v1/pog/proposals/{proposalId}/items` | 제안 결과 수동 조정 |
+| `POST /api/v1/pog/projects/{projectId}/confirm` | 프로젝트 확정 |
+| `DELETE /api/v1/pog/projects/{projectId}` | 미사용 프로젝트 삭제 |

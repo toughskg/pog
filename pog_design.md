@@ -17,6 +17,7 @@ POG 시스템은 다음 4개 영역으로 분리하여 설계한다.
 | 진열제안 | [pog_proposal_design.md](C:/Projects/pog/pog_proposal_design.md) | 스코어와 진열대장 속성을 기반으로 상품 위치, 면수, 깊이 등 제안 |
 | 점별진열대장 생성 | [pog_store_planogram_design.md](C:/Projects/pog/pog_store_planogram_design.md) | 표준 진열대장과 점별 진열대장 매핑, action list 실행, 점포별 POG 생성 |
 | 진열 엔진 아키텍처 | [pog_engine_architecture_design.md](C:/Projects/pog/pog_engine_architecture_design.md) | 표준진열제안 엔진과 점별진열대장 엔진의 시스템/소프트웨어 아키텍처 |
+| 동시성 및 상태 관리 | [pog_concurrency_design.md](C:/Projects/pog/pog_concurrency_design.md) | 다중 사용자 편집 잠금, 상태 전이, 삭제 보호, 엔진 job 동시성 관리 |
 
 ## 3. 전체 업무 흐름
 
@@ -182,6 +183,10 @@ React 화면
 
 확정된 표준 프로젝트를 점포별 POG로 변환하는 action list 구조, 실행 방식, 80여 가지 옵션, 사용자 수식, 단계별 실행/미리보기 구조를 정의한다.
 
+### 8.5 동시성 및 상태 관리 설계서
+
+다수 사용자가 동일 진열대장, 프로젝트, Action List를 동시에 수정하거나 삭제하지 못하도록 편집 잠금, 낙관적 락, 상태 전이, 삭제 보호, 엔진 job 중복 실행 방지 구조를 정의한다.
+
 ## 9. 공통 비기능 요구사항
 
 | 항목 | 요구사항 |
@@ -196,6 +201,7 @@ React 화면
 | 캐시 일관성 | 공통코드/다국어 메시지 변경 시 Redis 캐시 갱신 또는 무효화 |
 | 세션 클러스터링 | Spring Session 또는 동등한 방식으로 Redis에 세션을 공유하여 서버 증설 시 화면 상태 유지 |
 | 실행 통제 | 스코어링 프로시저 호출과 엔진 job 생성은 Spring Boot 화면 서버를 통해 권한과 상태 검증 후 실행 |
+| 동시성 제어 | 편집 잠금, version_no 낙관적 락, 상태 기반 삭제 보호, job_scope_key 중복 실행 방지 적용 |
 
 ## 10. 문서 목록
 
@@ -204,3 +210,4 @@ React 화면
 - [진열제안 설계서](C:/Projects/pog/pog_proposal_design.md)
 - [점별진열대장 생성 설계서](C:/Projects/pog/pog_store_planogram_design.md)
 - [진열 엔진 아키텍처 설계서](C:/Projects/pog/pog_engine_architecture_design.md)
+- [동시성 및 상태 관리 설계서](C:/Projects/pog/pog_concurrency_design.md)

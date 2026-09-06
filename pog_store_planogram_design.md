@@ -22,7 +22,9 @@
 
 Action List는 표준진열대장을 점별진열대장으로 변환하기 위한 실행 옵션 묶음이다. Action List는 사용자가 수동으로 실행할 수 있고, 확정된 프로젝트에 대해 배치로 실행할 수도 있다.
 
-각 action은 단계별로 실행 가능해야 하며, 사용자는 표준진열대장과 점별진열대장이 실시간으로 변경되는 모습을 확인하면서 옵션 값을 수정할 수 있다.
+Action List 단계는 `설정 단계`, `공간 전처리 단계`, `상품/위치 후보 준비 단계`, `상품 배열 실행 단계`, `최종 확정 단계`로 구분한다. 실제 점별 POG에 상품 구성, 위치, 면수, 깊이 등의 배열 결과가 확정 반영되는 단계는 `Reduce to Fit Phase` 이후로 정의한다. 그 이전 단계는 최종 배열을 만들기 위한 정책, 공간 구조, 상품 후보, 위치 후보, 그룹 기준을 준비하는 단계이다.
+
+각 action은 단계별로 실행 가능해야 하며, 사용자는 표준진열대장과 점별진열대장이 실시간으로 변경되는 모습을 확인하면서 옵션 값을 수정할 수 있다. 단, 단계별 실행 결과는 `준비 결과`와 `배열 확정 결과`를 구분하여 표시한다.
 
 Action List는 JSON 형식의 데이터 구조로 저장한다. 명령의 실행 단위는 `key1`이며, `key1` 하나가 하나의 설정 화면을 구성한다. `key2`, `key3`, `key4`는 해당 `key1` 설정 화면 안에서 관리되는 세부 옵션이다.
 
@@ -65,32 +67,32 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 | 설명 | 옵션 설명 |
 | 효과 | 실행 시 POG에 미치는 효과 |
 
-### 5.1 명령 단계
+### 5.1 명령 단계 구분
 
-| 단계 | 주요 명령 그룹 |
-|---|---|
-| setting | fill out, Warnings, Collision |
-| Fixtures | Segment association, Mirror, Filter fixtures, Adjust fixtures, Rename fixtures, Combine fixtures, Fixture linkage, Copy fixed signs |
-| Products Phase | Include products, Exclude products, Copy merchandised signs |
-| Positions Phase | Orientation, Allow secondary orientation, Drop duplicate positions, Group positions along fixture, Sort positions along fixture, Move to same fixture, Move to same fixture (multiple), Split positions across linked fixtures |
-| Bands and Families Phase | Define a band, Define multiple bands, Define product families, Preview |
-| Reduce to Fit Phase | Drop Positions, Relax minimum unit facings |
-| Fill out Phase | Add positions, Boost minimum unit facings, Allow motion, Allow motion (multiple) |
-| Final Phase | Duplicate positions vertically to empty shelves, Add side caps, Copy data to target, Set placement |
-| common | 논리적 공통 명령 그룹. Obey next action if ..., By pass this action List, .. also where, Comment, Stop 등은 실제 저장 시 원하는 단계 아래의 `key1`로 등록 |
+| 구분 | 단계 | 주요 명령 그룹 |
+|---|---|---|
+| 설정 단계 | setting | fill out, Warnings, Collision |
+| 공간 전처리 단계 | Fixtures | Segment association, Mirror, Filter fixtures, Adjust fixtures, Rename fixtures, Combine fixtures, Fixture linkage, Copy fixed signs |
+| 상품 후보 준비 단계 | Products Phase | Include products, Exclude products, Copy merchandised signs |
+| 위치 후보 준비 단계 | Positions Phase | Orientation, Allow secondary orientation, Drop duplicate positions, Group positions along fixture, Sort positions along fixture, Move to same fixture, Move to same fixture (multiple), Split positions across linked fixtures |
+| 그룹/밴드 준비 단계 | Bands and Families Phase | Define a band, Define multiple bands, Define product families, Preview |
+| 상품 배열 실행 단계 | Reduce to Fit Phase | Drop Positions, Relax minimum unit facings |
+| 상품 배열 실행 단계 | Fill out Phase | Add positions, Boost minimum unit facings, Allow motion, Allow motion (multiple) |
+| 최종 확정 단계 | Final Phase | Duplicate positions vertically to empty shelves, Add side caps, Copy data to target, Set placement |
+| 공통 명령 분류 | common | 논리적 공통 명령 그룹. Obey next action if ..., By pass this action List, .. also where, Comment, Stop 등은 실제 저장 시 원하는 단계 아래의 `key1`로 등록 |
 
 ### 5.2 단계별 역할
 
 | 단계 | 역할 |
 |---|---|
-| setting | 전체 실행 전 빈 공간, overflow, warning, collision 처리 정책을 설정 |
-| Fixtures | 세그먼트, 선반, 집기, 미러링, fixture 필터링과 조정 처리 |
-| Products Phase | 대상 상품 포함/제외와 상품 관련 사인 복사 처리 |
-| Positions Phase | 상품 방향, 중복 포지션 제거, 위치 정렬, fixture 간 이동 처리 |
-| Bands and Families Phase | 밴드, 복수 밴드, 상품 패밀리 정의 및 미리보기 처리 |
-| Reduce to Fit Phase | 공간 부족 시 포지션 제거 또는 최소 면수 완화 처리 |
-| Fill out Phase | 남는 공간 채우기, 최소 unit facings 보강, 상품 이동 처리 |
-| Final Phase | 빈 선반 보완, 사이드캡 추가, 데이터 복사, 최종 배치 보정 |
+| setting | 전체 실행 전 빈 공간, overflow, warning, collision 처리 정책을 설정. 실제 진열 결과를 변경하지 않고 실행 컨텍스트와 검증 정책을 준비 |
+| Fixtures | 세그먼트, 선반, 집기, 미러링, fixture 필터링과 조정 처리. 상품 배열 실행 전 공간 구조와 관계를 준비 |
+| Products Phase | 대상 상품 포함/제외 조건과 상품 관련 사인 복사 기준을 처리. 최종 상품 배열을 확정하지 않고 상품 후보군을 준비 |
+| Positions Phase | 상품 방향, 중복 포지션 제거, 위치 정렬, fixture 간 이동 기준을 처리. 최종 위치를 확정하지 않고 위치 후보와 정렬 기준을 준비 |
+| Bands and Families Phase | 밴드, 복수 밴드, 상품 패밀리 정의 및 미리보기 처리. 상품 배열 실행에 사용할 그룹 기준을 준비 |
+| Reduce to Fit Phase | 공간 부족 시 포지션 제거 또는 최소 면수 완화 처리. 실제 점별 POG 상품 배열을 조정하기 시작하는 실행 단계 |
+| Fill out Phase | 남는 공간 채우기, 최소 unit facings 보강, 상품 이동 처리. 실제 점별 POG 상품 배열을 보완하는 실행 단계 |
+| Final Phase | 빈 선반 보완, 사이드캡 추가, 데이터 복사, 최종 배치 보정. 최종 점별 POG 결과를 확정하는 단계 |
 | common | 조건부 실행, action list 우회, 추가 필터, 주석, 중지 처리. 독립 실행 단계가 아니라 모든 단계에서 사용할 수 있는 공통 명령 분류 |
 
 ### 5.3 명령 처리 원칙
@@ -100,6 +102,10 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 - `key1` 한 개는 하나의 설정 화면으로 구성한다.
 - `key2`, `key3`, `key4`는 `key1` 화면의 하위 옵션으로 관리한다.
 - 명령은 `단계 > key1 > key2 > key3 > key4` 계층으로 관리한다.
+- 단계는 `설정 단계`, `공간 전처리 단계`, `상품/위치 후보 준비 단계`, `상품 배열 실행 단계`, `최종 확정 단계`로 구분한다.
+- `setting`, `Fixtures`, `Products Phase`, `Positions Phase`, `Bands and Families Phase`는 실제 상품 배열 확정 전 준비 단계로 본다.
+- `Reduce to Fit Phase`, `Fill out Phase`, `Final Phase`는 실제 점별 POG의 상품 구성, 위치, 면수, 깊이, 배치 결과를 변경하거나 확정하는 단계로 본다.
+- `Products Phase`의 포함/제외 명령은 최종 상품 구성에 영향을 주지만, 이 단계 자체에서 최종 배열을 확정하지 않는다.
 - 각 명령 옵션은 입력 타입과 값 형식에 따라 화면 컴포넌트를 자동 결정할 수 있어야 한다.
 - 명령 정의는 코드에 고정하지 않고 DB 또는 설정 파일로 관리한다.
 - 명령 실행 순서는 `단계`와 단계 내 `key1` 순서를 함께 사용한다.
@@ -121,6 +127,19 @@ Action List는 다음과 같은 구조를 가진다.
   "projectId": "PRJ-001",
   "steps": [
     {
+      "phaseType": "SETTING",
+      "phaseCode": "setting",
+      "stepOrderInPhase": 1,
+      "key1": "Warnings",
+      "commandDefinitionId": "CMD-SET-WARNINGS",
+      "settings": {
+        "enabled": true,
+        "overflowWarning": true,
+        "collisionWarning": true
+      }
+    },
+    {
+      "phaseType": "SPACE_PREP",
       "phaseCode": "Fixtures",
       "stepOrderInPhase": 1,
       "key1": "Mirror",
@@ -133,6 +152,7 @@ Action List는 다음과 같은 구조를 가진다.
       }
     },
     {
+      "phaseType": "PRODUCT_PREP",
       "phaseCode": "Products Phase",
       "stepOrderInPhase": 1,
       "key1": "Include products",
@@ -143,6 +163,7 @@ Action List는 다음과 같은 구조를 가진다.
       }
     },
     {
+      "phaseType": "PRODUCT_PREP",
       "phaseCode": "Products Phase",
       "stepOrderInPhase": 0,
       "key1": "Obey next action if ...",
@@ -158,6 +179,8 @@ Action List는 다음과 같은 구조를 가진다.
 ```
 
 위 예시처럼 `common` 명령은 논리 분류만 `common`이며, 실제 실행 위치는 `phaseCode`와 `stepOrderInPhase`로 결정한다. 즉 `Obey next action if ...` 명령은 `Products Phase` 단계의 0번째 `key1` 명령으로 저장되고 실행된다.
+
+`phaseType = SETTING`, `SPACE_PREP`, `PRODUCT_PREP`, `POSITION_PREP`, `GROUP_PREP`인 step은 최종 상품 배열을 만들기 위한 실행 컨텍스트, 공간 구조, 상품 후보, 위치 후보, 그룹 기준에 반영한다. `phaseType = ARRANGE_EXECUTION`, `FINALIZE`인 step은 정해진 단계 순서와 `stepOrderInPhase`에 따라 실제 점별진열대장 상품 배열 결과를 변경하거나 확정한다.
 
 ## 6. 사용자 수식
 
@@ -325,6 +348,7 @@ CUME(Value 10) / SUM(Value 10)
 |---|---|
 | action_step_id | Action 단계 ID |
 | action_list_id | Action List ID |
+| phase_type | SETTING / SPACE_PREP / PRODUCT_PREP / POSITION_PREP / GROUP_PREP / ARRANGE_EXECUTION / FINALIZE |
 | phase_code | 명령 단계 |
 | step_order | 전체 실행 순서 |
 | step_order_in_phase | 단계 내 실행 순서 |
@@ -347,6 +371,7 @@ Action List에서 사용할 수 있는 명령과 옵션 정의.
 | 컬럼 | 설명 |
 |---|---|
 | command_definition_id | 명령 정의 ID |
+| phase_type | SETTING / SPACE_PREP / PRODUCT_PREP / POSITION_PREP / GROUP_PREP / ARRANGE_EXECUTION / FINALIZE |
 | phase_code | 단계 코드 |
 | key1 | 1단계 명령 그룹 |
 | key2 | 2단계 옵션 |

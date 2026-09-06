@@ -18,6 +18,7 @@ POG 시스템은 다음 4개 영역으로 분리하여 설계한다.
 | 점별진열대장 생성 | [pog_store_planogram_design.md](C:/Projects/pog/pog_store_planogram_design.md) | 표준 진열대장과 점별 진열대장 매핑, action list 실행, 점포별 POG 생성 |
 | 진열 엔진 아키텍처 | [pog_engine_architecture_design.md](C:/Projects/pog/pog_engine_architecture_design.md) | 표준진열제안 엔진과 점별진열대장 엔진의 시스템/소프트웨어 아키텍처 |
 | 동시성 및 상태 관리 | [pog_concurrency_design.md](C:/Projects/pog/pog_concurrency_design.md) | 다중 사용자 편집 잠금, 상태 전이, 삭제 보호, 엔진 job 동시성 관리 |
+| 실적 인터페이스 및 배치 | [pog_batch_interface_design.md](C:/Projects/pog/pog_batch_interface_design.md) | 외부 분석계 일별 실적 파일 수신, Python 적재, Prefect 배치, 주간 집계 프로시저 관리 |
 
 ## 3. 전체 업무 흐름
 
@@ -66,7 +67,9 @@ flowchart TD
     A --> DB["RDBMS"]
     A --> P["Scoring Procedure"]
     P --> DB
-    A --> B["Batch Scheduler"]
+    IF["IF Server<br/>Daily Sales File"]
+    B["Prefect Batch<br/>Python File Loader"]
+    IF --> B
     B --> DB
     A --> L["Audit/Execution Log"]
 ```
@@ -80,7 +83,8 @@ flowchart TD
 | RDBMS | PostgreSQL 또는 운영 표준 DB | POG 마스터, 주별 집계, 스코어링 결과, 진열대장, Action List 저장 |
 | Redis | Redis / Spring Session | 클러스터 세션 공유, 로그인 컨텍스트, 권한 캐시, 공통코드, 다국어 메시지, 화면 설정 캐시 |
 | Procedure | DB Stored Procedure | 스코어링, 기간 집계, 일부 대량 계산 처리 |
-| Batch | Spring Scheduler, Spring Batch 또는 운영 배치 | 일별/주별 집계, 마이그레이션, 확정 프로젝트 배치 실행 |
+| Batch | Prefect, Python | IF 서버 실적 파일 적재, 일별 확정 자료 생성, 주간 집계 프로시저 실행, 배치 이력 관리 |
+| IF Server | File Interface Server | 외부 정보 분석계가 매일 04:00까지 전일 마감 기준 일별 상품별 매출 집계 파일을 업로드하는 위치 |
 | Audit Log | DB Table 또는 로그 저장소 | 사용자 실행, 수동 조정, 프로시저 실행 결과 추적 |
 
 ### 5.2 Redis 사용 영역
@@ -117,7 +121,8 @@ React 화면
 
 | 구분 | 처리 방식 |
 |---|---|
-| 일별/주별 집계 | 배치 또는 스케줄러에서 처리 |
+| 일별 실적 적재 | 외부 분석계가 IF 서버에 04:00까지 파일 업로드, Prefect가 06:00에 Python loader 실행 |
+| 주별 집계 | 매주 월요일 07:00 Prefect가 DB 프로시저를 실행하여 전주 실적을 주간 집계 테이블에 누적 |
 | 프로젝트 스코어링 | 화면 Controller 기반 프로시저 호출 |
 | 진열제안 | 화면 Controller에서 비동기 job 생성 후 결과 조회 |
 | Action List 수동 실행 | 화면 Controller 기반 단계별 preview/apply |
@@ -187,6 +192,10 @@ React 화면
 
 다수 사용자가 동일 진열대장, 프로젝트, Action List를 동시에 수정하거나 삭제하지 못하도록 편집 잠금, 낙관적 락, 상태 전이, 삭제 보호, 엔진 job 중복 실행 방지 구조를 정의한다.
 
+### 8.6 실적 인터페이스 및 배치 설계서
+
+외부 정보 분석계 시스템이 IF 서버에 업로드한 일별 상품별 매출 집계 파일을 Prefect와 Python으로 매일 06:00에 적재하고, 매주 월요일 07:00에 DB 프로시저로 전주 실적을 주간 집계 테이블에 누적하는 배치 구조를 정의한다.
+
 ## 9. 공통 비기능 요구사항
 
 | 항목 | 요구사항 |
@@ -196,6 +205,7 @@ React 화면
 | 감사성 | 사용자 조정, 룰 적용, action 실행 이력 추적 |
 | 성능 | 점포/상품/주차 단위 대량 데이터 집계 및 스코어링 가능 |
 | 안정성 | 배치 실패 시 재시도와 이전 확정 결과 유지 |
+| 배치 운영성 | Prefect 기준 flow/task 이력, 재시도, 재처리, 파일 도착 지연 알림 관리 |
 | 보안 | MD, 운영자, 조회자 권한 분리 |
 | 사용성 | 단계별 실행 결과를 화면에서 확인하고 재조정 가능 |
 | 캐시 일관성 | 공통코드/다국어 메시지 변경 시 Redis 캐시 갱신 또는 무효화 |
@@ -211,3 +221,4 @@ React 화면
 - [점별진열대장 생성 설계서](C:/Projects/pog/pog_store_planogram_design.md)
 - [진열 엔진 아키텍처 설계서](C:/Projects/pog/pog_engine_architecture_design.md)
 - [동시성 및 상태 관리 설계서](C:/Projects/pog/pog_concurrency_design.md)
+- [실적 인터페이스 및 배치 설계서](C:/Projects/pog/pog_batch_interface_design.md)

@@ -24,6 +24,10 @@ Action List는 표준진열대장을 점별진열대장으로 변환하기 위�
 
 각 action은 단계별로 실행 가능해야 하며, 사용자는 표준진열대장과 점별진열대장이 실시간으로 변경되는 모습을 확인하면서 옵션 값을 수정할 수 있다.
 
+Action List는 JSON 형식의 데이터 구조로 저장한다. 명령의 실행 단위는 `key1`이며, `key1` 하나가 하나의 설정 화면을 구성한다. `key2`, `key3`, `key4`는 해당 `key1` 설정 화면 안에서 관리되는 세부 옵션이다.
+
+명령 순서는 같은 단계 안에서만 변경할 수 있다. 예를 들어 `Fixtures` 단계의 `Mirror` 명령은 `Fixtures` 단계 안에서 순서를 바꿀 수 있지만 `Products Phase`나 `Positions Phase`로 이동할 수 없다. 단, `common` 명령은 전체 단계의 어느 위치에도 삽입할 수 있다.
+
 ## 4. Action List 주요 옵션
 
 Action List 옵션은 80여 가지 이상으로 확장될 수 있으므로, 아래 항목은 예시이며 전체 범위를 제한하지 않는다.
@@ -91,13 +95,66 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 
 ### 5.3 명령 처리 원칙
 
+- Action List는 JSON 형식으로 저장하고 실행한다.
+- 명령의 실행 단위는 `key1`이다.
+- `key1` 한 개는 하나의 설정 화면으로 구성한다.
+- `key2`, `key3`, `key4`는 `key1` 화면의 하위 옵션으로 관리한다.
 - 명령은 `단계 > key1 > key2 > key3 > key4` 계층으로 관리한다.
 - 각 명령 옵션은 입력 타입과 값 형식에 따라 화면 컴포넌트를 자동 결정할 수 있어야 한다.
 - 명령 정의는 코드에 고정하지 않고 DB 또는 설정 파일로 관리한다.
-- 명령 실행 순서는 단계와 action step 순서를 함께 사용한다.
-- 공통 명령은 모든 단계 앞뒤에 삽입될 수 있어야 한다.
+- 명령 실행 순서는 `단계`와 단계 내 `key1` 순서를 함께 사용한다.
+- 명령 순서 변경은 동일 단계 안에서만 허용한다.
+- 일반 명령은 다른 단계로 이동할 수 없다.
+- `common` 명령은 예외적으로 전체 단계의 어느 위치에도 삽입할 수 있다.
 - 명령별 설명과 효과는 사용자 화면의 도움말로 제공한다.
 - 명령 옵션은 예시 목록에 한정하지 않고 확장 가능해야 한다.
+
+### 5.4 Action List JSON 구조
+
+Action List는 다음과 같은 구조를 가진다.
+
+```json
+{
+  "actionListId": "AL-001",
+  "projectId": "PRJ-001",
+  "steps": [
+    {
+      "phaseCode": "Fixtures",
+      "stepOrderInPhase": 1,
+      "key1": "Mirror",
+      "commandDefinitionId": "CMD-FIX-MIRROR",
+      "settings": {
+        "enabled": true,
+        "Mirror": 2,
+        "Desired traffic flow formula": "IF(Width=300,1,0)",
+        "Reorder segments, but preserve the contents of each segment": false
+      }
+    },
+    {
+      "phaseCode": "Products Phase",
+      "stepOrderInPhase": 1,
+      "key1": "Include products",
+      "commandDefinitionId": "CMD-PRD-INCLUDE",
+      "settings": {
+        "enabled": true,
+        "Where": "FILTER_IN(UNIT MOVEMENT > 5)"
+      }
+    },
+    {
+      "phaseCode": "common",
+      "insertTargetPhaseCode": "Products Phase",
+      "insertBeforeStepOrder": 1,
+      "key1": "Obey next action if ...",
+      "commandDefinitionId": "CMD-COM-OBEY-NEXT",
+      "settings": {
+        "condition": "COUNT(UPC) > 0"
+      }
+    }
+  ]
+}
+```
+
+`common` 명령은 논리상 `phaseCode = common`으로 관리하되, 실제 실행 위치는 `insertTargetPhaseCode`, `insertBeforeStepOrder`, `insertAfterStepOrder` 등으로 지정한다.
 
 ## 6. 사용자 수식
 
@@ -265,10 +322,16 @@ CUME(Value 10) / SUM(Value 10)
 |---|---|
 | action_step_id | Action 단계 ID |
 | action_list_id | Action List ID |
-| step_order | 실행 순서 |
+| phase_code | 명령 단계 |
+| step_order | 전체 실행 순서 |
+| step_order_in_phase | 단계 내 실행 순서 |
+| key1 | 실행 명령 단위 |
 | command_definition_id | 실행 명령 정의 ID |
 | action_type | Action 유형 |
-| option_json | 옵션값 |
+| option_json | key1 설정 화면의 전체 JSON 옵션값 |
+| insert_target_phase_code | common 명령 삽입 대상 단계 |
+| insert_before_step_order | common 명령 삽입 기준 이전 순서 |
+| insert_after_step_order | common 명령 삽입 기준 이후 순서 |
 | formula_text | 사용자 수식 |
 | formula_ast_json | 파싱된 수식 구조 |
 | formula_validation_status | 수식 검증 상태 |
@@ -291,6 +354,8 @@ Action List에서 사용할 수 있는 명령과 옵션 정의.
 | default_value | 기본값 |
 | value_format | 값 형식 |
 | allowed_values | 지정값 |
+| is_common_command | common 명령 여부 |
+| movable_scope | SAME_PHASE / ANY_PHASE |
 | description | 설명 |
 | effect | 효과 |
 | display_order | 화면 표시 순서 |

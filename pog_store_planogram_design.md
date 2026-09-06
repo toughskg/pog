@@ -26,7 +26,7 @@ Action List는 표준진열대장을 점별진열대장으로 변환하기 위�
 
 Action List는 JSON 형식의 데이터 구조로 저장한다. 명령의 실행 단위는 `key1`이며, `key1` 하나가 하나의 설정 화면을 구성한다. `key2`, `key3`, `key4`는 해당 `key1` 설정 화면 안에서 관리되는 세부 옵션이다.
 
-명령 순서는 같은 단계 안에서만 변경할 수 있다. 예를 들어 `Fixtures` 단계의 `Mirror` 명령은 `Fixtures` 단계 안에서 순서를 바꿀 수 있지만 `Products Phase`나 `Positions Phase`로 이동할 수 없다. 단, `common` 명령은 전체 단계의 어느 위치에도 삽입할 수 있다.
+명령 순서는 같은 단계 안에서만 변경할 수 있다. 예를 들어 `Fixtures` 단계의 `Mirror` 명령은 `Fixtures` 단계 안에서 순서를 바꿀 수 있지만 `Products Phase`나 `Positions Phase`로 이동할 수 없다. 단, `common`에 해당하는 명령은 논리적으로 공통 명령 카탈로그에 속할 뿐이며, 실제 JSON과 실행 구조에서는 원하는 실제 단계 아래에 `key1` 명령으로 바로 등록할 수 있다.
 
 ## 4. Action List 주요 옵션
 
@@ -77,7 +77,7 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 | Reduce to Fit Phase | Drop Positions, Relax minimum unit facings |
 | Fill out Phase | Add positions, Boost minimum unit facings, Allow motion, Allow motion (multiple) |
 | Final Phase | Duplicate positions vertically to empty shelves, Add side caps, Copy data to target, Set placement |
-| common | Obey next action if ..., By pass this action List, .. also where, Comment, Stop |
+| common | 논리적 공통 명령 그룹. Obey next action if ..., By pass this action List, .. also where, Comment, Stop 등은 실제 저장 시 원하는 단계 아래의 `key1`로 등록 |
 
 ### 5.2 단계별 역할
 
@@ -91,7 +91,7 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 | Reduce to Fit Phase | 공간 부족 시 포지션 제거 또는 최소 면수 완화 처리 |
 | Fill out Phase | 남는 공간 채우기, 최소 unit facings 보강, 상품 이동 처리 |
 | Final Phase | 빈 선반 보완, 사이드캡 추가, 데이터 복사, 최종 배치 보정 |
-| common | 조건부 실행, action list 우회, 추가 필터, 주석, 중지 처리 |
+| common | 조건부 실행, action list 우회, 추가 필터, 주석, 중지 처리. 독립 실행 단계가 아니라 모든 단계에서 사용할 수 있는 공통 명령 분류 |
 
 ### 5.3 명령 처리 원칙
 
@@ -105,7 +105,9 @@ Action List에서 실행되는 명령은 별도의 명령 카탈로그로 관리
 - 명령 실행 순서는 `단계`와 단계 내 `key1` 순서를 함께 사용한다.
 - 명령 순서 변경은 동일 단계 안에서만 허용한다.
 - 일반 명령은 다른 단계로 이동할 수 없다.
-- `common` 명령은 예외적으로 전체 단계의 어느 위치에도 삽입할 수 있다.
+- `common` 명령은 독립 단계로 저장하지 않는다.
+- `common` 명령은 명령 정의상 공통 명령으로 분류되며, 실제 Action List JSON에서는 사용자가 선택한 실제 단계의 하위 `key1`로 등록한다.
+- 따라서 `phaseCode = common`인 실행 step은 생성하지 않고, `isCommonCommand = true` 또는 `commandGroup = common` 같은 속성으로 공통 명령 여부를 식별한다.
 - 명령별 설명과 효과는 사용자 화면의 도움말로 제공한다.
 - 명령 옵션은 예시 목록에 한정하지 않고 확장 가능해야 한다.
 
@@ -141,11 +143,12 @@ Action List는 다음과 같은 구조를 가진다.
       }
     },
     {
-      "phaseCode": "common",
-      "insertTargetPhaseCode": "Products Phase",
-      "insertBeforeStepOrder": 1,
+      "phaseCode": "Products Phase",
+      "stepOrderInPhase": 0,
       "key1": "Obey next action if ...",
       "commandDefinitionId": "CMD-COM-OBEY-NEXT",
+      "commandGroup": "common",
+      "isCommonCommand": true,
       "settings": {
         "condition": "COUNT(UPC) > 0"
       }
@@ -154,7 +157,7 @@ Action List는 다음과 같은 구조를 가진다.
 }
 ```
 
-`common` 명령은 논리상 `phaseCode = common`으로 관리하되, 실제 실행 위치는 `insertTargetPhaseCode`, `insertBeforeStepOrder`, `insertAfterStepOrder` 등으로 지정한다.
+위 예시처럼 `common` 명령은 논리 분류만 `common`이며, 실제 실행 위치는 `phaseCode`와 `stepOrderInPhase`로 결정한다. 즉 `Obey next action if ...` 명령은 `Products Phase` 단계의 0번째 `key1` 명령으로 저장되고 실행된다.
 
 ## 6. 사용자 수식
 
@@ -329,9 +332,8 @@ CUME(Value 10) / SUM(Value 10)
 | command_definition_id | 실행 명령 정의 ID |
 | action_type | Action 유형 |
 | option_json | key1 설정 화면의 전체 JSON 옵션값 |
-| insert_target_phase_code | common 명령 삽입 대상 단계 |
-| insert_before_step_order | common 명령 삽입 기준 이전 순서 |
-| insert_after_step_order | common 명령 삽입 기준 이후 순서 |
+| command_group | 일반 명령 그룹 또는 common |
+| is_common_command | common 공통 명령 여부 |
 | formula_text | 사용자 수식 |
 | formula_ast_json | 파싱된 수식 구조 |
 | formula_validation_status | 수식 검증 상태 |
@@ -355,7 +357,8 @@ Action List에서 사용할 수 있는 명령과 옵션 정의.
 | value_format | 값 형식 |
 | allowed_values | 지정값 |
 | is_common_command | common 명령 여부 |
-| movable_scope | SAME_PHASE / ANY_PHASE |
+| allowed_phase_scope | 특정 단계 코드 목록 또는 ALL_PHASES |
+| movable_scope | SAME_PHASE. common 명령도 실제 등록된 단계 안에서만 순서 변경 |
 | description | 설명 |
 | effect | 효과 |
 | display_order | 화면 표시 순서 |

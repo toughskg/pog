@@ -124,7 +124,7 @@ Action List는 점별진열대장 생성 전용이다. 표준진열제안 엔진
 3. 대상 점포와 표준/점별 진열대장 매핑 로딩
 4. Action List JSON 로딩
 5. key1 단위 실행 계획 생성
-6. common 명령 삽입 위치 해석
+6. common 명령 여부와 실제 등록 단계 해석
 7. 사용자 수식 검증 및 AST 변환
 8. 단계별 preview 또는 apply 실행
 9. 점포별 공간 부족/초과 처리
@@ -138,7 +138,7 @@ Action List는 점별진열대장 생성 전용이다. 표준진열제안 엔진
 |---|---|
 | JobRunner | 점별 생성 job 수신 및 실행 상태 관리 |
 | ActionListLoader | Action List JSON과 명령 카탈로그 로딩 |
-| ActionPlanner | phase, key1, common 삽입 위치 기준 실행 계획 생성 |
+| ActionPlanner | phase, key1, common 명령 여부 기준 실행 계획 생성 |
 | FormulaParser | 사용자 수식 토큰화, AST 생성, 검증 |
 | FormulaEvaluator | 허용된 함수와 필드만 사용해 수식 평가 |
 | StoreContextBuilder | 점포 공간, 점별 속성, 표준 제안 결과를 컨텍스트로 구성 |
@@ -420,12 +420,12 @@ OR-Tools는 모든 케이스에 무조건 사용하지 않는다. 상품 수가 
 
 ### 11.4 점별진열대장 엔진 적용 라이브러리
 
-점별진열대장 엔진은 Action List JSON과 사용자 수식을 사용한다. 실행 단위는 `key1`이며, `common` 명령은 전체 단계 어느 위치에도 삽입될 수 있다.
+점별진열대장 엔진은 Action List JSON과 사용자 수식을 사용한다. 실행 단위는 `key1`이다. `common` 명령은 독립 단계가 아니라 공통 명령 카탈로그 분류이며, 실제 JSON에서는 사용자가 선택한 단계 아래의 `key1`로 등록된다.
 
 | 처리 | 권장 라이브러리 | 설명 |
 |---|---|---|
 | Action List JSON 검증 | `pydantic`, `orjson` | key1 설정 화면 단위 JSON payload 검증 |
-| 명령 실행 계획 | Python 표준 라이브러리, `networkx` | phase/key1/common 삽입 위치 해석, fixture linkage 관계 처리 |
+| 명령 실행 계획 | Python 표준 라이브러리, `networkx` | phase/key1/common 명령 여부 해석, fixture linkage 관계 처리 |
 | 사용자 수식 파싱 | `lark` | `IF`, `CONTAINS`, `SUM`, `COUNT_UNIQUE`, `RANK_BY`, `CUME` 등 DSL 파싱 |
 | 수식 평가 | `polars`, `numpy` | 필터, 집계, 랭킹, 누적 구성비 계산 |
 | 공간 검증 | `shapely` | 상품 이동 후 위치 겹침, 집기 영역 초과, 선반 포함 여부 검증 |
@@ -515,7 +515,7 @@ dev = [
 | 폴더/파일 | 책임 |
 |---|---|
 | `store_action/action_list_loader.py` | Action List JSON과 명령 정의 로딩 |
-| `store_action/action_planner.py` | 단계/key1/common 위치 기준 실행 계획 생성 |
+| `store_action/action_planner.py` | 단계/key1/common 명령 여부 기준 실행 계획 생성 |
 | `store_action/action_executor.py` | key1 단위 명령 실행 |
 | `store_action/store_context_builder.py` | 점포별 공간/상품/표준제안 컨텍스트 생성 |
 | `store_action/store_fit_engine.py` | 부족/초과/방향/브랜드 모음 등 점별 변환 |
